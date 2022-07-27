@@ -1,0 +1,8 @@
+﻿{
+  "Id": "EditorPlus",
+  "DisplayName": "Editor+",
+  "Author": "PERIOT",
+  "Version": "3.0.a1",
+  "AssemblyName": "EditorPlus.dll",
+  "EntryMethod": "EditorPlus.Main.Load"
+}

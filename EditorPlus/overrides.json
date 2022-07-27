@@ -1,0 +1,95 @@
+﻿{
+    "editorPlus.tweakName.unlimitedEditor": {
+        "Korean": "에디터 제한 해제",
+        "English": "Unlimited Editor"
+    },
+    "editorPlus.tweakName.unlimitedValues": {
+        "Korean": "수치 제한 해제",
+        "English": "Unlimited values"
+    },
+    "editorPlus.tweakName.firstTile": {
+        "Korean": "첫 타일 이벤트",
+        "English": "First tile events"
+    },
+    
+    
+    "editorPlus.tweakName.oldDecorations": {
+        "Korean": "틀딱 장식 시스템 사용",
+        "English": "Use old decorations system"
+    },
+    "editorPlus.tweakName.showDecorationsOnFloor": {
+        "Korean": "타일 선택 시 장식 이벤트 보이기",
+        "English": "Show decoration event when selecting a tile"
+    },
+    "editorPlus.tweakName.playDecorationFloor": {
+        "Korean": "플레이 시 선택된 장식의 타일로부터 시작",
+        "English": "Start playing from selected decoration's floor"
+    },
+
+    "editorPlus.tweakName.moreOptions": {
+        "Korean": "에디터 추가 설정",
+        "English": "More options"
+    },
+    "editorPlus.tweakName.legacyTile": {
+        "Korean": "레거시 타일 설정",
+        "English": "Legacy tile option"
+    },
+    "editorPlus.tweakName.moreDecorationOptions": {
+        "Korean": "장식 추가 설정",
+        "English": "More options for decorations"
+    },
+    "editorPlus.tweakName.removeFFOnRGBA": {
+        "Korean": "RGBA 값에서 알파값 'FF' 제거",
+        "English": "Remove alpha 'FF' from RGBA value"
+    },
+    "editorPlus.tweakName.showTileAngle": {
+        "Korean": "선택한 타일 각도 보이기",
+        "English": "Show selected tile angle"
+    },
+    
+    "editorPlus.oldDecorations.hideTab": {
+        "Korean": "장식 탭 숨기기",
+        "English": "Hide decorations tab"
+    },
+    
+    "editorPlus.showTileAngle.Reflect3Planet": {
+        "Korean": "행성 개수 반영",
+        "English": "Reflect planet count"
+    },
+    
+    "editorPlus.showTileAngle.RequireKeybind": {
+        "Korean": "키를 눌러서 보이기",
+        "English": "Show only when a key is pressed"
+    },
+    
+    "editorPlus.GUI.Reset": {
+        "Korean": "초기화",
+        "English": "Reset"
+    },
+
+    "editor.EH:useLegacyFloors": {
+        "Korean": "레거시 스프라이트 타일 사용",
+        "English": "Use legacy sprite tiles"
+    },
+
+    "editor.EH:lockToCameraPos": {
+        "Korean": "위치 고정",
+        "English": "Lock position"
+    },
+
+
+    "editorPlus.tweakName.miscellaneous": {
+        "Korean": "기타 기능",
+        "English": "Miscellaneous"
+    },
+
+    "editor.EH:lockToCameraRot": {
+        "Korean": "회전 고정",
+        "English": "Lock rotation"
+    },
+
+    "editor.EH:lockToCameraScale": {
+        "Korean": "크기 고정",
+        "English": "Lock scale"
+    }
+}

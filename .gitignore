@@ -1,0 +1,11 @@
+﻿# JetBrains IDE
+.idea/
+*.user
+
+# Build Output
+bin/
+obj/
+*.zip
+
+# Packages
+packages/
