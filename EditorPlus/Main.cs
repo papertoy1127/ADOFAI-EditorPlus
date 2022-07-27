@@ -76,6 +76,7 @@ namespace EditorPlus {
         public static void Postfix(ref string __result, string token) {
             var lang = Localization.CurrentLanguage;
             if (Overrides.ContainsKey(token) && Overrides[token].ContainsKey(lang)) __result = Overrides[token][lang];
+            else if (Overrides.ContainsKey(token) && Overrides[token].ContainsKey(LangCode.English)) __result = Overrides[token][LangCode.English];
         }
     }
 
@@ -84,6 +85,7 @@ namespace EditorPlus {
         public static void Postfix(ref bool __result, string token) {
             var lang = Localization.CurrentLanguage;
             if (RDStringOverride.Overrides.ContainsKey(token) && RDStringOverride.Overrides[token].ContainsKey(lang)) __result = true;
+            else if (RDStringOverride.Overrides.ContainsKey(token) && RDStringOverride.Overrides[token].ContainsKey(LangCode.English)) __result = true;
         }
     }
 

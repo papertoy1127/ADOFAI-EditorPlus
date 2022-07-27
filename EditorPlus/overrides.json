@@ -1,95 +1,116 @@
 ﻿{
     "editorPlus.tweakName.unlimitedEditor": {
         "Korean": "에디터 제한 해제",
-        "English": "Unlimited Editor"
+        "English": "Unlimited Editor",
+        "ChineseSimplified": "解除编辑限制"
     },
     "editorPlus.tweakName.unlimitedValues": {
         "Korean": "수치 제한 해제",
-        "English": "Unlimited values"
+        "English": "Unlimited values",
+        "ChineseSimplified": "解除数值限制"
     },
     "editorPlus.tweakName.firstTile": {
         "Korean": "첫 타일 이벤트",
-        "English": "First tile events"
+        "English": "First tile events",
+        "ChineseSimplified": "首个砖块编辑事件"
     },
-    
-    
+
+
     "editorPlus.tweakName.oldDecorations": {
         "Korean": "틀딱 장식 시스템 사용",
-        "English": "Use old decorations system"
+        "English": "Use old decorations system",
+        "ChineseSimplified": "使用旧版装饰系统"
     },
     "editorPlus.tweakName.showDecorationsOnFloor": {
         "Korean": "타일 선택 시 장식 이벤트 보이기",
-        "English": "Show decoration event when selecting a tile"
+        "English": "Show decoration event when selecting a tile",
+        "ChineseSimplified": "选择砖块时显示装饰事件"
     },
     "editorPlus.tweakName.playDecorationFloor": {
         "Korean": "플레이 시 선택된 장식의 타일로부터 시작",
-        "English": "Start playing from selected decoration's floor"
+        "English": "Start playing from selected decoration's floor",
+        "ChineseSimplified": "从选定装饰的砖块开始播放"
     },
 
     "editorPlus.tweakName.moreOptions": {
         "Korean": "에디터 추가 설정",
-        "English": "More options"
+        "English": "More options",
+        "ChineseSimplified": "添加编辑器设置"
     },
     "editorPlus.tweakName.legacyTile": {
         "Korean": "레거시 타일 설정",
-        "English": "Legacy tile option"
+        "English": "Legacy tile option",
+        "ChineseSimplified": "设置继承砖块"
     },
     "editorPlus.tweakName.moreDecorationOptions": {
         "Korean": "장식 추가 설정",
-        "English": "More options for decorations"
+        "English": "More options for decorations",
+        "ChineseSimplified": "添加装饰设置"
     },
     "editorPlus.tweakName.removeFFOnRGBA": {
         "Korean": "RGBA 값에서 알파값 'FF' 제거",
-        "English": "Remove alpha 'FF' from RGBA value"
+        "English": "Remove alpha 'FF' from RGBA value",
+        "ChineseSimplified": "从RGBA值中删除alpha‘FF’"
+
     },
     "editorPlus.tweakName.showTileAngle": {
         "Korean": "선택한 타일 각도 보이기",
-        "English": "Show selected tile angle"
+        "English": "Show selected tile angle",
+        "ChineseSimplified": "显示选定的砖块角度"
     },
-    
+
     "editorPlus.oldDecorations.hideTab": {
         "Korean": "장식 탭 숨기기",
-        "English": "Hide decorations tab"
+        "English": "Hide decorations tab",
+        "ChineseSimplified": "隐藏装饰标签"
     },
-    
+
     "editorPlus.showTileAngle.Reflect3Planet": {
         "Korean": "행성 개수 반영",
-        "English": "Reflect planet count"
+        "English": "Reflect planet count",
+        "ChineseSimplified": "反映行星数量"
     },
-    
+
     "editorPlus.showTileAngle.RequireKeybind": {
         "Korean": "키를 눌러서 보이기",
-        "English": "Show only when a key is pressed"
+        "English": "Show only when a key is pressed",
+        "ChineseSimplified": "仅当按键时显示"
     },
-    
+
     "editorPlus.GUI.Reset": {
         "Korean": "초기화",
-        "English": "Reset"
+        "English": "Reset",
+        "ChineseSimplified": "初始化"
     },
 
     "editor.EH:useLegacyFloors": {
         "Korean": "레거시 스프라이트 타일 사용",
-        "English": "Use legacy sprite tiles"
+        "English": "Use legacy sprite tiles",
+        "ChineseSimplified": "使用传统闪光砖块"
     },
 
     "editor.EH:lockToCameraPos": {
         "Korean": "위치 고정",
-        "English": "Lock position"
+        "English": "Lock position",
+        "ChineseSimplified": "锁定位置"
     },
 
 
     "editorPlus.tweakName.miscellaneous": {
         "Korean": "기타 기능",
-        "English": "Miscellaneous"
+        "English": "Miscellaneous",
+        "ChineseSimplified": "其他功能"
     },
 
     "editor.EH:lockToCameraRot": {
         "Korean": "회전 고정",
-        "English": "Lock rotation"
+        "English": "Lock rotation",
+        "ChineseSimplified": "锁定旋转"
     },
 
     "editor.EH:lockToCameraScale": {
         "Korean": "크기 고정",
-        "English": "Lock scale"
+        "English": "Lock scale",
+        "ChineseSimplified": "锁定大小"
     }
 }

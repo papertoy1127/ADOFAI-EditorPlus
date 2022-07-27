@@ -2,7 +2,7 @@
   "Id": "EditorPlus",
   "DisplayName": "Editor+",
   "Author": "PERIOT",
-  "Version": "3.0.a1",
+  "Version": "3.0.1.r94",
   "AssemblyName": "EditorPlus.dll",
   "EntryMethod": "EditorPlus.Main.Load"
 }

@@ -84,10 +84,6 @@ public class UnlimitedEditor : Tweak {
         [HarmonyPatch(typeof(scnEditor), "AddEvent")]
         public static class AddEventAtFirstFloorPatch2 {
             public static bool Prefix(scnEditor __instance, int floorID, LevelEventType eventType) {
-                if (OldDecorations.Settings.EnableState == EnableState.Enabled) {
-                    return true;
-                }
-                
                 var newLevelEvent = new LevelEvent(floorID, eventType);
                 var selectedEvent = __instance.levelEventsPanel.selectedEvent;
                 if (selectedEvent != null && selectedEvent.data.ContainsKey("angleOffset") &&
