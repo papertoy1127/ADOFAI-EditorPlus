@@ -112,5 +112,30 @@
         "Korean": "크기 고정",
         "English": "Lock scale",
         "ChineseSimplified": "锁定大小"
+    },
+    
+    "editorPlus.credits.originalMod": {
+        "Korean": "원본 모드 (EditorHelper)",
+        "English": "Original mod (EditorHelper)"
+    },
+    
+    "editorPlus.credits.develop": {
+        "Korean": "메인 개발자",
+        "English": "Main developer"
+    },
+    
+    "editorPlus.credits.develop2": {
+        "Korean": "개발 지원",
+        "English": "Develop support"
+    },
+
+    "editorPlus.credits.logo": {
+        "Korean": "로고",
+        "English": "Logo"
+    },
+
+    "editorPlus.credits.translation": {
+        "Korean": "번역 - 중국어 (간체)",
+        "English": "Translation - Chinese (Simplified)"
     }
 }

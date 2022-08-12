@@ -16,6 +16,7 @@ namespace EditorPlus {
         internal static MainSettings Settings { get; private set; }
         internal static readonly KeyCode[] AllKeyCodes = Enum.GetValues(typeof(KeyCode)).Cast<KeyCode>().ToArray();
 
+        private static bool _credits = false;
         private static bool Load(UnityModManager.ModEntry modEntry) { 
             _mod = modEntry;
             Settings = UnityModManager.ModSettings.Load<MainSettings>(modEntry);
@@ -27,7 +28,7 @@ namespace EditorPlus {
             using var reader = new BinaryReader(resourceStream);
             var texture = new Texture2D(2, 2);
             texture.LoadImage(reader.ReadBytes((int)resourceStream.Length));
-            new TextureScale().Bilinear(texture, texture.width * 240 / texture.height, 240);
+            new TextureScale().Bilinear(texture, 600, texture.height * 600 / texture.width);
             
             _mod.OnGUI = e => {
                 GUILayout.BeginHorizontal();
@@ -46,6 +47,19 @@ namespace EditorPlus {
             Harmony.CreateClassProcessor(typeof(TextFieldHandleEvent)).Patch();
             Harmony.CreateClassProcessor(typeof(TextFieldHandleEvent2)).Patch();
             Runner.Run(modEntry);
+            _mod.OnGUI += _ => {
+                if (GUILayout.Button("Credits", GUILayout.Height(18), GUILayout.Width(200))) {
+                    _credits = !_credits;
+                }
+
+                if (_credits) {
+                    GUILayout.Label($"<size=16><b>PatrickKR</b> {RDString.Get("editorPlus.credits.originalMod")}</size>");
+                    GUILayout.Label($"<size=16><b>PERIOT</b> {RDString.Get("editorPlus.credits.develop")}</size>");
+                    GUILayout.Label($"<size=16><b>C＃＃ (C# 0.1%;᲼)</b> {RDString.Get("editorPlus.credits.develop2")}</size>");
+                    GUILayout.Label($"<size=16><b>Editor AlriC</b> {RDString.Get("editorPlus.credits.logo")}</size>");
+                    GUILayout.Label($"<size=16><b>Gunbuster</b> {RDString.Get("editorPlus.credits.translation")}</size>");
+                }
+            };
             return true;
         }
     }

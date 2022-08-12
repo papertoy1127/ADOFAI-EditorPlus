@@ -377,7 +377,7 @@ public class OldDecorations : Tweak {
 			}
 		}
 
-		[HarmonyPatch(typeof(PropertyControl_List), "SelectItem", typeof(LevelEvent), typeof(bool))] // 장식 선택시 타일도 선택
+		[HarmonyPatch(typeof(PropertyControl_List), "SelectItem", typeof(LevelEvent), typeof(bool), typeof(bool), typeof(bool))] // 장식 선택시 타일도 선택
 		public static class SelectDecorationTile {
 			public static void Prefix(PropertyControl_List __instance) {
 				__instance.OnItemSelected = e => {
