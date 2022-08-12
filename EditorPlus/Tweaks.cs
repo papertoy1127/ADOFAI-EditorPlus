@@ -35,7 +35,7 @@ namespace EditorPlus {
         internal TweakRunner Runner { get; set; }
     }
 
-    public enum EnableState {
+    public enum State {
         Enabled,
         Disabled,
         Error
@@ -66,7 +66,8 @@ namespace EditorPlus {
         static readonly AssemblyBuilder dynSettingsAssembly;
         static readonly ModuleBuilder dynSettingsModule;
         static readonly Dictionary<TweakAttribute, Type> settingTypes;
-        public EnableState EnableState = EnableState.Enabled;
+        public State RunningState = State.Enabled;
+        public State EnableState = State.Enabled;
         public bool IsExpanded;
 
         public override string GetPath(ModEntry modEntry)
@@ -94,22 +95,9 @@ namespace EditorPlus {
 
     public static class Runner {
         static Runner() {
-            OnHarmony = new Harmony($"onHarmony{new object().GetHashCode()}");
             Runners = new List<TweakRunner>();
             RunnersDict = new Dictionary<Type, TweakRunner>();
-            OT = typeof(Runner).GetMethod(nameof(Runner.OnToggle), (BindingFlags) 15420);
-            OG = typeof(Runner).GetMethod(nameof(Runner.OnGUI), (BindingFlags) 15420);
-            OS = typeof(Runner).GetMethod(nameof(Runner.OnSaveGUI), (BindingFlags) 15420);
-            OH = typeof(Runner).GetMethod(nameof(Runner.OnHideGUI), (BindingFlags) 15420);
-            OU = typeof(Runner).GetMethod(nameof(Runner.OnUpdate), (BindingFlags) 15420);
         }
-
-        private static readonly MethodInfo OT;
-        private static readonly MethodInfo OG;
-        private static readonly MethodInfo OS;
-        private static readonly MethodInfo OH;
-        private static readonly MethodInfo OU;
-        private static Harmony OnHarmony { get; }
         public static void Load(ModEntry modEntry) => Run(modEntry);
 
         public static void Run(ModEntry modEntry, bool preGUI = false, params Assembly[] assemblies) {
@@ -122,26 +110,16 @@ namespace EditorPlus {
             }
 
             TweakTypes.AddRange(modEntry.Assembly.GetTypes().Where(t => t.IsSubclassOf(typeof(Tweak)) && !t.IsNested && t.GetCustomAttribute<TweakAttribute>() != null));
-            if (modEntry.OnToggle == null)
-                modEntry.OnToggle = (m, v) => OnToggle(v);
-            else OnHarmony.Patch(modEntry.OnToggle.Method, postfix: new HarmonyMethod(OT));
-            if (modEntry.OnGUI == null)
-                modEntry.OnGUI = (m) => OnGUI();
-            else {
-                if (preGUI)
-                    OnHarmony.Patch(modEntry.OnGUI.Method, new HarmonyMethod(OG));
-                else OnHarmony.Patch(modEntry.OnGUI.Method, postfix: new HarmonyMethod(OG));
+            modEntry.OnToggle += (m, v) => OnToggle(v);
+            if (preGUI) {
+                modEntry.OnGUI = (_ => OnGUI()) + modEntry.OnGUI;
             }
-
-            if (modEntry.OnHideGUI == null)
-                modEntry.OnHideGUI = (m) => OnHideGUI();
-            else OnHarmony.Patch(modEntry.OnHideGUI.Method, postfix: new HarmonyMethod(OH));
-            if (modEntry.OnSaveGUI == null)
-                modEntry.OnSaveGUI = (m) => OnSaveGUI();
-            else OnHarmony.Patch(modEntry.OnSaveGUI.Method, postfix: new HarmonyMethod(OS));
-            if (modEntry.OnUpdate == null)
-                modEntry.OnUpdate = (m, dt) => OnUpdate();
-            else OnHarmony.Patch(modEntry.OnUpdate.Method, postfix: new HarmonyMethod(OU));
+            else {
+                modEntry.OnGUI += _ => OnGUI();
+            }
+            modEntry.OnHideGUI += _ => OnHideGUI();
+            modEntry.OnSaveGUI += _ => OnSaveGUI();
+            modEntry.OnSaveGUI += _ => OnUpdate();
         }
 
         private static List<Type> TweakTypes { get; set; }
@@ -156,20 +134,19 @@ namespace EditorPlus {
             }
 
             Runners.ForEach(runner => {
-                if (runner.Settings.EnableState == EnableState.Enabled)
-                    runner.Start(true);
+                if (runner.Settings.EnableState == State.Enabled)
+                    runner.Start(false);
             });
         }
 
         private static void Stop() {
             Runners.ForEach(runner => runner.Stop());
-            Runners.Clear();
+            //Runners.Clear();
             OnSaveGUI();
         }
 
         private static bool OnToggle(bool value) {
-            if (value)
-                Start();
+            if (value) Start();
             else Stop();
             return true;
         }
@@ -224,7 +201,10 @@ namespace EditorPlus {
             Type settingType = TweakSettings.GetSettingType(attr, tweakType, out var error);
             SyncSettings.Register(Tweak.TweakEntry, tweakType, settingType);
             settings = SyncSettings.SettingsTweaktype[tweakType];
-            if (error) settings.EnableState = EnableState.Error;
+            if (error) {
+                settings.RunningState = State.Error;
+                settings.EnableState = State.Error;
+            }
             Tweak.Tweaks.Add(tweakType, tweak);
             return tweak;
         }
@@ -242,7 +222,7 @@ namespace EditorPlus {
 
         public void Enable(TweakRunner runner) {
             foreach (TweakRunner rnr in runners.Where(r => r != runner))
-                rnr.Disable();
+                rnr.Disable(false);
         }
     }
 
@@ -285,15 +265,17 @@ namespace EditorPlus {
                     Groups.Add(innerTime, groups = new Dictionary<string, TweakGroup>());
                 if (groups.TryGetValue(group.Id, out Group))
                     Group.runners.Add(this);
-                else groups.Add(group.Id, Group = new TweakGroup(new List<TweakRunner>() {this}));
+                else groups.Add(group.Id, Group = new TweakGroup(new List<TweakRunner>() { this }));
             }
 
             Last = last;
             if (Metadata.PatchesType != null)
                 AddPatches(Metadata.PatchesType, true);
             AddPatches(tweakType, false);
-            if (Metadata.MustNotBeDisabled)
-                Settings.EnableState = EnableState.Enabled;
+            if (Metadata.MustNotBeDisabled) {
+                Settings.RunningState = State.Enabled;
+                Settings.EnableState = State.Enabled;
+            }
         }
 
         public string LogPrefix {
@@ -318,16 +300,16 @@ namespace EditorPlus {
         private string logPrefix;
 
         public void Start(bool force = false) {
-            if (force || Settings.EnableState == EnableState.Disabled) Enable();
+            if (force || Settings.RunningState == State.Disabled) Enable();
             InnerTweaks.ForEach(runner => {
-                if (runner.Settings.EnableState == EnableState.Enabled)
-                    runner.Start(true);
+                if (runner.Settings.EnableState == State.Enabled)
+                    runner.Start(false);
             });
         }
 
         public void Stop() {
-            if (Settings.EnableState == EnableState.Enabled)
-                Disable();
+            if (Settings.RunningState == State.Enabled)
+                Disable(false);
         }
 
         public void Enable() {
@@ -344,17 +326,21 @@ namespace EditorPlus {
             }
 
             Tweak.OnPatch();
-            Settings.EnableState = EnableState.Enabled;
+            Settings.EnableState = State.Enabled;
+            Settings.RunningState = State.Enabled;
             Group?.Enable(this);
         }
 
-        public void Disable() {
-            if (Metadata.MustNotBeDisabled) return;
+        public void Disable(bool changeState = true) {
+            if (Metadata.MustNotBeDisabled) {
+                return;
+            }
             Tweak.OnDisable();
             Harmony.UnpatchAll(Harmony.Id);
             Tweak.OnUnpatch();
-            InnerTweaks.ForEach(runner => runner.Disable());
-            Settings.EnableState = EnableState.Disabled;
+            InnerTweaks.ForEach(runner => runner.Disable(false));
+            if (changeState) Settings.EnableState = State.Disabled;
+            Settings.RunningState = State.Disabled;
         }
 
         public static int Indent;
@@ -389,11 +375,11 @@ namespace EditorPlus {
             GUILayout.BeginHorizontal();
             bool canBeExpanded = Metadata.SettingsType != null;
             bool newIsExpanded = Settings.IsExpanded;
-            EnableState newIsEnabled = Settings.EnableState;
+            State newIsEnabled = Settings.EnableState;
 
             var fontSize = (int) (2 * FontSizeMax + FontSizeMin * Indent) / (Indent + 2);
 
-            if (canBeExpanded && Settings.EnableState == EnableState.Enabled) {
+            if (canBeExpanded && Settings.RunningState == State.Enabled) {
                 if (GUILayout.Button(Settings.IsExpanded ? "▼" : "▶", Expan)) newIsExpanded = !newIsExpanded;
             } else {
                 GUILayout.Label("", Expan);
@@ -401,13 +387,13 @@ namespace EditorPlus {
 
             Func<bool> enableTxt;
             switch (newIsEnabled) {
-                case EnableState.Enabled:
+                case State.Enabled:
                     enableTxt = () => GUILayout.Button(Metadata.MustNotBeDisabled ? "" : "<size=36><color=#22DD22>●</color></size>", Enabl, GUILayout.Width(22));
                     break;
-                case EnableState.Disabled:
+                case State.Disabled:
                     enableTxt = () => GUILayout.Button(Metadata.MustNotBeDisabled ? "" : "<size=36><color=#888888>●</color></size>", Enabl, GUILayout.Width(22));
                     break;
-                case EnableState.Error:
+                case State.Error:
                     enableTxt = () => {
                         GUILayout.Label(Metadata.MustNotBeDisabled ? "" : "<size=36><color=#DD2222>●</color></size>", Enabl, GUILayout.Width(50));
                         GUILayout.Space(-45);
@@ -437,9 +423,10 @@ namespace EditorPlus {
             GUILayout.EndHorizontal(); 
             GUILayout.Space(-5);
             
-            if (!Metadata.MustNotBeDisabled && Settings.EnableState != EnableState.Error && newIsEnabled != Settings.EnableState) {
+            if (!Metadata.MustNotBeDisabled && Settings.RunningState != State.Error && newIsEnabled != Settings.RunningState) {
+                Settings.RunningState = newIsEnabled;
                 Settings.EnableState = newIsEnabled;
-                if (newIsEnabled == EnableState.Enabled) {
+                if (newIsEnabled == State.Enabled) {
                     Enable();
                     newIsExpanded = true;
                 } else Disable();
@@ -451,7 +438,7 @@ namespace EditorPlus {
                     Tweak.OnHideGUI();
             }
 
-            if (canBeExpanded && Settings.IsExpanded && Settings.EnableState == EnableState.Enabled) {
+            if (canBeExpanded && Settings.IsExpanded && Settings.RunningState == State.Enabled) {
                 GUILayout.BeginHorizontal();
                 GUILayout.Space(Metadata.IndentSize);
                 Indent += 1;
@@ -470,13 +457,13 @@ namespace EditorPlus {
         }
 
         public void OnUpdate() {
-            if (Settings.EnableState == EnableState.Enabled)
+            if (Settings.RunningState == State.Enabled)
                 Tweak.OnUpdate();
             InnerTweaks.ForEach(runner => runner.OnUpdate());
         }
 
         public void OnHideGUI() {
-            if (Settings.EnableState == EnableState.Enabled)
+            if (Settings.RunningState == State.Enabled)
                 Tweak.OnHideGUI();
             InnerTweaks.ForEach(runner => runner.OnHideGUI());
         }
