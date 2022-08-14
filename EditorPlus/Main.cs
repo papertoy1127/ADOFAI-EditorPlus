@@ -25,7 +25,7 @@ namespace EditorPlus {
             using var reader = new BinaryReader(resourceStream);
             var texture = new Texture2D(2, 2);
             texture.LoadImage(reader.ReadBytes((int)resourceStream.Length));
-            new TextureScale().Bilinear(texture, 600, texture.height * 600 / texture.width);
+            new TextureScale().Bilinear(texture, texture.width * 240 / texture.height, 240);
             
             _mod.OnGUI = e => {
                 GUILayout.BeginHorizontal();
