@@ -13,14 +13,11 @@ namespace EditorPlus {
     public static class Main {
         public static Harmony Harmony { get; private set; }
         internal static UnityModManager.ModEntry _mod;
-        internal static MainSettings Settings { get; private set; }
         internal static readonly KeyCode[] AllKeyCodes = Enum.GetValues(typeof(KeyCode)).Cast<KeyCode>().ToArray();
 
         private static bool _credits = false;
         private static bool Load(UnityModManager.ModEntry modEntry) { 
             _mod = modEntry;
-            Settings = UnityModManager.ModSettings.Load<MainSettings>(modEntry);
-            _mod.OnSaveGUI = m => Settings.Save(m);
             
             const string resourceName = "EditorPlus.editorPlus-Logo2.png";
             var assembly = Assembly.GetExecutingAssembly();

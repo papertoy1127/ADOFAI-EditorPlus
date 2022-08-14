@@ -66,7 +66,7 @@ namespace EditorPlus {
         static readonly AssemblyBuilder dynSettingsAssembly;
         static readonly ModuleBuilder dynSettingsModule;
         static readonly Dictionary<TweakAttribute, Type> settingTypes;
-        public State RunningState = State.Enabled;
+        [XmlIgnore] public State RunningState = State.Disabled;
         public State EnableState = State.Enabled;
         public bool IsExpanded;
 
@@ -110,6 +110,13 @@ namespace EditorPlus {
             }
 
             TweakTypes.AddRange(modEntry.Assembly.GetTypes().Where(t => t.IsSubclassOf(typeof(Tweak)) && !t.IsNested && t.GetCustomAttribute<TweakAttribute>() != null));
+
+            foreach (Type tweakType in TweakTypes
+                         .OrderBy(t => t.GetCustomAttribute<TweakAttribute>().Priority)
+                         .ThenBy(t => t.GetCustomAttribute<TweakAttribute>().Name)) {
+                RegisterTweakInternal(tweakType, null, false);
+            }
+            
             modEntry.OnToggle += (m, v) => OnToggle(v);
             if (preGUI) {
                 modEntry.OnGUI = (_ => OnGUI()) + modEntry.OnGUI;
@@ -127,15 +134,9 @@ namespace EditorPlus {
         private static List<TweakRunner> Runners { get; }
 
         private static void Start() {
-            foreach (Type tweakType in TweakTypes
-                         .OrderBy(t => t.GetCustomAttribute<TweakAttribute>().Priority)
-                         .ThenBy(t => t.GetCustomAttribute<TweakAttribute>().Name)) {
-                RegisterTweakInternal(tweakType, null, false);
-            }
-
             Runners.ForEach(runner => {
                 if (runner.Settings.EnableState == State.Enabled)
-                    runner.Start(false);
+                    runner.Start();
             });
         }
 
@@ -299,11 +300,11 @@ namespace EditorPlus {
 
         private string logPrefix;
 
-        public void Start(bool force = false) {
-            if (force || Settings.RunningState == State.Disabled) Enable();
+        public void Start() {
+            if (Settings.RunningState != State.Enabled) Enable();
             InnerTweaks.ForEach(runner => {
                 if (runner.Settings.EnableState == State.Enabled)
-                    runner.Start(false);
+                    runner.Start();
             });
         }
 
