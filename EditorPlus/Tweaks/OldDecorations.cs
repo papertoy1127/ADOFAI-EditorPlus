@@ -164,7 +164,7 @@ public class OldDecorations : Tweak {
 					__instance.ShowPanel(LevelEventType.None, 0);
 					__instance.invoke("ModifyMessageText")(RDString.Get("editor.dialog.noEventsOnTile", null), 0f,
 						true);
-					scnEditor.instance.propertyControlList.DeselectAllItems();
+					scnEditor.instance.propertyControlList.DeselectAllDecorations();
 				} else {
 					LevelEventType levelEventType = LevelEventType.None;
 					foreach (object obj in Enum.GetValues(typeof(LevelEventType))) {
@@ -185,7 +185,7 @@ public class OldDecorations : Tweak {
 
 					__instance.selectedEventType = LevelEventType.None;
 					if (levelEventType != LevelEventType.AddDecoration && levelEventType != LevelEventType.AddText) {
-						scnEditor.instance.propertyControlList.DeselectAllItems();
+						scnEditor.instance.propertyControlList.DeselectAllDecorations();
 					}
 
 					__instance.ShowPanel(levelEventType, 0);
