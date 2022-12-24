@@ -148,6 +148,7 @@ public class MoreOptions : Tweak {
 
 				if (lockRot || lockScale) {
 					components["scrLockToCamera"] = new Dictionary<string, object>() {
+						{"lockPos", false},
 						{"lockRot", lockRot},
 						{"lockScale", lockScale}
 					};

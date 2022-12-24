@@ -164,7 +164,7 @@ public class OldDecorations : Tweak {
 					__instance.ShowPanel(LevelEventType.None, 0);
 					__instance.invoke("ModifyMessageText")(RDString.Get("editor.dialog.noEventsOnTile", null), 0f,
 						true);
-					scnEditor.instance.propertyControlList.DeselectAllDecorations();
+					scnEditor.instance.DeselectAllDecorations();
 				} else {
 					LevelEventType levelEventType = LevelEventType.None;
 					foreach (object obj in Enum.GetValues(typeof(LevelEventType))) {
@@ -185,7 +185,7 @@ public class OldDecorations : Tweak {
 
 					__instance.selectedEventType = LevelEventType.None;
 					if (levelEventType != LevelEventType.AddDecoration && levelEventType != LevelEventType.AddText) {
-						scnEditor.instance.propertyControlList.DeselectAllDecorations();
+						scnEditor.instance.DeselectAllDecorations();
 					}
 
 					__instance.ShowPanel(levelEventType, 0);
@@ -377,10 +377,10 @@ public class OldDecorations : Tweak {
 			}
 		}
 
-		[HarmonyPatch(typeof(PropertyControl_List), "SelectItem", typeof(LevelEvent), typeof(bool), typeof(bool), typeof(bool))] // 장식 선택시 타일도 선택
+		[HarmonyPatch(typeof(scnEditor), "SelectDecoration", typeof(LevelEvent), typeof(bool), typeof(bool), typeof(bool), typeof(bool))] // 장식 선택시 타일도 선택
 		public static class SelectDecorationTile {
-			public static void Prefix(PropertyControl_List __instance) {
-				__instance.OnItemSelected = e => {
+			public static void Prefix(scnEditor __instance) {
+				__instance.propertyControlList.OnItemSelected = e => {
 					scnEditor.instance.SelectFloor(scnEditor.instance.floors[e.floor], false);
 				};
 			}

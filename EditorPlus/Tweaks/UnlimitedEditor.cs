@@ -60,7 +60,7 @@ public class UnlimitedEditor : Tweak {
                             __instance.RemoveEvent(levelEvent);
                             __instance.DecideInspectorTabsAtSelected();
                         } else {
-                            __instance.AddEvent(sequenceID, eventType);
+                            __instance.invoke("AddEvent")(sequenceID, eventType);
                             __instance.levelEventsPanel.selectedEventType = eventType;
                             int count = __instance.events.FindAll((LevelEvent x) =>
                                 x.eventType == eventType && x.floor == sequenceID).Count;

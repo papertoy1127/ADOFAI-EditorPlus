@@ -13,11 +13,11 @@ namespace EditorPlus.Components {
         public static bool Convert() {
             bool isMesh = !CustomLevel.instance.levelData.isOldLevel;
             if (isMesh) {
-                var data = ToLegacy(CustomLevel.instance.levelData.angleData, out var unsucessfull);
-                if (unsucessfull.HasValue) {
+                var data = ToLegacy(CustomLevel.instance.levelData.angleData, out var unsucessful);
+                if (unsucessful.HasValue) {
                     RDStringOverride.Overrides["editor.dialog.conversionSongNotFound"] = new Dictionary<LangCode, string>{
-                        {LangCode.Korean, $"변환 실패\n타일 #{unsucessfull.Value.Item1}: {unsucessfull.Value.Item2}°"}, 
-                        {LangCode.English, $"Conversion failed\nFloor #{unsucessfull.Value.Item1}: {unsucessfull.Value.Item2}°"}
+                        {LangCode.Korean, $"변환 실패\n타일 #{unsucessful.Value.Item1}: {unsucessful.Value.Item2}°"}, 
+                        {LangCode.English, $"Conversion failed\nFloor #{unsucessful.Value.Item1}: {unsucessful.Value.Item2}°"}
                     };
                     scnEditor.instance.ShowPopup(true, scnEditor.PopupType.ConversionError);
                     RDStringOverride.Overrides.Remove("editor.dialog.conversionSongNotFound");
@@ -133,7 +133,7 @@ namespace EditorPlus.Components {
             return angleData;
         }
 
-        private static string ToLegacy(List<float> data, out (int, float)? UnsucessfullFloor) {
+        private static string ToLegacy(List<float> data, out (int, float)? unsucessfulFloor) {
             var pathData = new StringBuilder();
             var prevAngle = 0f;
             var floor = 0;
@@ -163,11 +163,11 @@ namespace EditorPlus.Components {
                     continue;
                 }
 
-                UnsucessfullFloor = (floor, angle);
+                unsucessfulFloor = (floor, angle);
                 return null;
             }
 
-            UnsucessfullFloor = null;
+            unsucessfulFloor = null;
             return pathData.ToString();
         }
     }

@@ -9,9 +9,7 @@ using UnityModManagerNet;
 
 namespace EditorPlus.Tweaks;
 
-[Tweak("miscellaneous",
-	SettingsType = typeof(MiscellaneousSettings),
-	Priority = int.MaxValue)]
+[Tweak("miscellaneous", SettingsType = typeof(MiscellaneousSettings), Priority = int.MaxValue)]
 public class Miscellaneous : Tweak {
 	[SyncSettings] public static MiscellaneousSettings Settings { get; set; }
 	[SyncTweak] public static Miscellaneous Instance { get; set; }
