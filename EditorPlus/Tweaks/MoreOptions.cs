@@ -4,23 +4,16 @@ using ADOFAI;
 using EditorPlus.Components;
 using GDMiniJSON;
 using HarmonyLib;
+using UnityEngine.Events;
 
 namespace EditorPlus.Tweaks;
 
-[Tweak("moreOptions",
-	SettingsType = typeof(MoreOptionsSettings),
-	Priority = 40)]
+[Tweak("moreOptions", Priority = 40)]
 public class MoreOptions : Tweak {
-	[SyncSettings] public static MoreOptionsSettings Settings { get; set; }
 	[SyncTweak] public static MoreOptions Instance { get; set; }
 
-	public class MoreOptionsSettings : TweakSettings {
-		//Settings
-	}
-
-
-	[Tweak("legacyTile", PatchesType = typeof(Patches))]
-	public class LegacyTile : MoreOptions {
+	[Tweak("legacyTile")]
+	public class LegacyTile : Tweak {
 		[HarmonyPatch(typeof(PropertyControl_Toggle), "SelectVar")]
 		public static class PropertySetPatch {
 			public static void Prefix(PropertyControl_Toggle __instance, ref string var) {
@@ -44,6 +37,15 @@ public class MoreOptions : Tweak {
 						{"name", "EH:useLegacyFloors"},
 						{"type", "Enum:ToggleBool"},
 						{"default", "Disabled"}
+					}, GCS.settingsInfo["MiscSettings"]));
+					
+				if (GCS.settingsInfo["MiscSettings"].propertiesInfo.ContainsKey("EH:clearVFX"))
+					GCS.settingsInfo["MiscSettings"].propertiesInfo.Remove("EH:clearVFX");
+				
+				GCS.settingsInfo["MiscSettings"].propertiesInfo.Add("EH:clearVFX",
+					new PropertyInfo(new Dictionary<string, object> {
+						{"name", "EH:clearVFX"},
+						{"type", "Export"},
 					}, GCS.settingsInfo["MiscSettings"]));
 			}
 		}
@@ -74,10 +76,56 @@ public class MoreOptions : Tweak {
 				__instance.miscSettings.data["EH:useLegacyFloors"] = __instance.isOldLevel ? "Enabled" : "Disabled";
 			}
 		}
+
+		[HarmonyPatch(typeof(PropertiesPanel), "Init")]
+		public static class PanelInitPatch {
+			private static bool _orig = false;
+
+			public static void Prefix() {
+				_orig = SteamIntegration.Instance.initialized;
+				SteamIntegration.Instance.initialized = true;
+			}
+
+			public static void Postfix() {
+				SteamIntegration.Instance.initialized = _orig;
+			}
+		}
+
+		[HarmonyPatch(typeof(PropertyControl), "Setup")]
+		public static class ExportSteamPatch {
+			public static void Prefix(PropertyControl __instance) {
+				if (__instance is not PropertyControl_Export e) return;
+				if (e.propertyInfo.name == "export") {
+					e.gameObject.SetActive(false);
+				}
+
+				if (e.propertyInfo.name == "EH.clearVFX") {
+					e.exportButton.onClick.RemoveAllListeners();
+					e.exportButton.onClick.AddListener(new UnityAction(() => ClearVFX(scnEditor.instance)));
+				}
+			}
+		}
+
+		public static LevelEventType[] VFXs = {
+			LevelEventType.MoveCamera,
+			LevelEventType.CustomBackground,
+			LevelEventType.RecolorTrack,
+			LevelEventType.MoveTrack,
+			LevelEventType.AddDecoration,
+			LevelEventType.AddText,
+			LevelEventType.SetText,
+			LevelEventType.Flash,
+		};
+		
+		public static void ClearVFX(scnEditor editor) {
+			foreach (var VARIABLE in editor.events) {
+				
+			}
+		}
 	}
 
-	[Tweak("moreDecorationOptions", PatchesType = typeof(MoreDecorationOptions))]
-	public class MoreDecorationOptions : MoreOptions {
+	[Tweak("moreDecorationOptions")]
+	public class MoreDecorationOptions : Tweak {
 		public static Dictionary<string, PropertyInfo> Info_orig;
 		public static Dictionary<string, PropertyInfo> Info_new;
 

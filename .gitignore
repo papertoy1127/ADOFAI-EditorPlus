@@ -9,3 +9,5 @@ obj/
 
 # Packages
 packages/
+
+./EditorPlus/Tweaks/DebugTweak.cs

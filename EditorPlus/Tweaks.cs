@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Collections.ObjectModel;
 using System.IO;
 using System.Linq;
 using System.Reflection;
@@ -7,69 +8,244 @@ using System.Reflection.Emit;
 using System.Text;
 using System.Xml.Serialization;
 using HarmonyLib;
+using Mono.WebBrowser;
 using UnityEngine;
+using UnityEngine.UIElements;
 using static UnityModManagerNet.UnityModManager;
+using Exception = System.Exception;
 
 namespace EditorPlus {
-    #region Publics
+    public abstract class Tweak {
+        public virtual void Init(Tweak parent, TweakAttribute attr) {
+            Parent = parent;
+            _children = new List<Tweak>();
+            Children = new ReadOnlyCollection<Tweak>(_children);
+            parent?._children.Add(this);
+            Metadata = attr;
+            if (Metadata == null) throw new Exception($"Tweak type {GetType()} cannot be initialized because no TweakAttribute is found.");
+            Patches = new List<Type>();
+            foreach (var t in GetType().GetNestedTypes()) {
+                if (t.GetCustomAttribute<HarmonyPatch>() != null) Patches.Add(t);
+            }
 
-    public class Tweak {
-        static Tweak() => Tweaks = new Dictionary<Type, Tweak>();
-        public static Dictionary<Type, Tweak> Tweaks { get; }
-        public static ModEntry TweakEntry { get; internal set; }
+            foreach (var i in GetType().GetProperties(BindingFlags.Static)) {
+                if (i.GetCustomAttribute<SyncTweakAttribute>() != null) i.SetValue(null, this);
+            }
+            
+            foreach (var i in GetType().GetFields(BindingFlags.Static)) {
+                if (i.GetCustomAttribute<SyncTweakAttribute>() != null) i.SetValue(null, this);
+            }
 
-        public void Log(object obj)
-            => TweakEntry.Logger.Log($"{Runner.LogPrefix}{obj}");
+            if (Metadata.Name != null) Harmony = new Harmony(Metadata.Name);
 
-        public void Enable() => Runner.Enable();
-        public void Disable() => Runner.Disable();
-        public virtual void OnPreGUI() { }
-        public virtual void OnGUI() { }
-        public virtual void OnPostGUI() { }
-        public virtual void OnPatch() { }
-        public virtual void OnUnpatch() { }
+            if (EnableState == State.Enabled) {
+                Enable();
+                RunningState = State.Enabled;
+            }
+        }
+        
+        public Tweak Parent { get; private set; }
+        public ReadOnlyCollection<Tweak> Children { get; private set; }
+        private List<Tweak> _children { get; set; }
+        
+        public Harmony Harmony { get; private set; }
+        public TweakAttribute Metadata { get; private set; }
+        public List<Type> Patches { get; private set; }
+
+        public State RunningState { get; private set; } = State.Disabled;
+        public State EnableState { get; private set; } = State.Enabled;
+        public bool IsExpanded { get; set; } = false;
+        public virtual bool HasGUI => Children.Count != 0;
+
+        public static int fontSize => (int) (TweakRunner.FontSizeMax - (TweakRunner.FontSizeMax - TweakRunner.FontSizeMin) * TweakRunner.Indent / (TweakRunner.Indent + 40));
+        
+        public virtual void OnGUI() {
+            GUILayout.Space(-10);
+            foreach (var child in Children) {
+                bool changeState;
+                GUILayout.BeginHorizontal();
+                switch (child.EnableState) {
+                    case State.Enabled:
+                        changeState = GUILayout.Button(child.Metadata.CannotDisable ? "" : "<size=36><color=#22DD22>●</color></size>", TweakRunner.Enabl, GUILayout.Width(22));
+                        if (changeState) {
+                            child.EnableState = State.Disabled;
+                            child.Enable();
+                        }
+                        break;
+                    case State.Disabled:
+                        changeState = GUILayout.Button(child.Metadata.CannotDisable ? "" : "<size=36><color=#888888>●</color></size>", TweakRunner.Enabl, GUILayout.Width(22));
+                        if (changeState) {
+                            child.EnableState = State.Enabled;
+                            child.Enable();
+                        }
+                        break;
+                    case State.Error:
+                        GUILayout.Button("<size=36><color=#DD2222>●</color></size>", TweakRunner.Enabl, GUILayout.Width(50));
+                        GUILayout.Space(-45);
+                        GUILayout.BeginVertical();
+                        GUILayout.Space(4);
+                        GUILayout.Button("<b><size=14><color=#FFFFFF>！</color></size></b>", TweakRunner.Enabl, GUILayout.Width(45));
+                        GUILayout.Space(-4);
+                        GUILayout.EndVertical();
+                        GUILayout.Space(-1455);
+                        break;
+                }
+
+                var ctn = RDString.GetWithCheck($"editorPlus.tweakName.{child.Metadata.Name}", out bool exists);
+                if (!exists) ctn = $"editorPlus.tweakName.{child.Metadata.Name}";
+                GUILayout.Button($"<size={fontSize}><b>{ctn}</b></size>", TweakRunner.Enabl_Label);
+                GUILayout.EndHorizontal();
+                GUILayout.Space(-15);
+                
+                if (child.EnableState == State.Enabled && child.HasGUI) {
+                    TweakRunner.BeginIndent();
+                    child.OnGUI();
+                    TweakRunner.EndIndent();
+                }
+            }
+            GUILayout.Space(20);
+        }
+
+        public void Enable() {
+            try {
+                foreach (var t in Patches) {
+                    Harmony.CreateClassProcessor(t).Patch();
+                }
+
+                foreach (var child in Children) {
+                    if (child.EnableState == State.Enabled && child.RunningState == State.Disabled) {
+                        child.Enable();
+                    }
+                }
+
+                OnEnable();
+            } catch (Exception e) {
+                Main._mod.Logger.LogException(e);
+                EnableState = State.Error;
+                RunningState = State.Error;
+            }
+        }
+
+        public void Disable() {
+            try {
+                foreach (var child in Children) {
+                    if (child.EnableState == State.Enabled) {
+                        child.Disable();
+                    }
+                }
+
+                Harmony.UnpatchAll(Harmony.Id);
+                OnDisable();
+            } catch (Exception e) {
+                Main._mod.Logger.LogException(e);
+                EnableState = State.Error;
+                RunningState = State.Error;
+            }
+        }
+
         public virtual void OnEnable() { }
         public virtual void OnDisable() { }
+        
+        public virtual void OnPatch() { }
+        public virtual void OnUnpatch() { }
         public virtual void OnUpdate() { }
         public virtual void OnHideGUI() { }
-        internal TweakRunner Runner { get; set; }
     }
 
-    public enum State {
-        Enabled,
-        Disabled,
-        Error
+    [Tweak("Root")]
+    public class Root : Tweak {
+        public override bool HasGUI => true;
     }
-    
-    public class TweakSettings : ModSettings {
-        static TweakSettings() {
-            string name = new object().GetHashCode().ToString();
-            dynSettingsAssembly =
-                AssemblyBuilder.DefineDynamicAssembly(new AssemblyName(name), AssemblyBuilderAccess.Run);
-            dynSettingsModule = dynSettingsAssembly.DefineDynamicModule(name);
-            settingTypes = new Dictionary<TweakAttribute, Type>();
+
+    public interface ISettingTweak {
+        public TweakSettings Settings { get; }
+    }
+
+    public abstract class Tweak<T> : Tweak, ISettingTweak where T : TweakSettings, new() {
+        public override void OnGUI() {
+            base.OnGUI();
+            GUILayout.Space(-10);
+            Settings.Draw();
         }
 
-        public static Type GetSettingType(TweakAttribute metadata, Type tweakType, out bool isError) {
-            isError = false;
-            if (metadata.SettingsType != null) {
-                if (metadata.SettingsType.IsSubclassOf(typeof(TweakSettings))) return metadata.SettingsType;
-                isError = true;
-                metadata.SettingsType = null;
+        public override void Init(Tweak parent, TweakAttribute attr) {
+            Settings = ModSettings.Load<T>(Main._mod);
+            Settings.Init();
+            base.Init(parent, attr);
+        }
+
+        public static T Settings { get; private set; }
+        TweakSettings ISettingTweak.Settings => Settings;
+
+        public override bool HasGUI => true;
+    }
+
+    public abstract class TweakSettings : ModSettings {
+        [XmlIgnore] public List<(MemberInfo, DrawAttribute)> Settings { get; private set; }
+
+        public void Init() {
+            var type = GetType();
+            Settings = new List<(MemberInfo, DrawAttribute)>();
+            foreach (var p in type.GetProperties()) {
+                var attr = p.GetCustomAttribute<DrawAttribute>();
+                if (attr == null) continue;
+                Settings.Add((p, attr));
             }
-            if (settingTypes.TryGetValue(metadata, out Type created)) return created;
-            else return settingTypes[metadata] = dynSettingsModule
-                    .DefineType($"{tweakType.FullName.Replace('.', '_').Replace('+', '_')}Settings",
-                        TypeAttributes.Public, typeof(TweakSettings)).CreateType();
+            
+            foreach (var p in type.GetFields()) {
+                var attr = p.GetCustomAttribute<DrawAttribute>();
+                if (attr == null) continue;
+                Settings.Add((p, attr));
+            }
         }
+        public virtual void Draw() {
+            GUILayout.Space(-10);
+            foreach (var (info, attr) in Settings) {
+                GUILayout.BeginHorizontal();
+                if (info is PropertyInfo p) {
+                    if (p.PropertyType == typeof(bool)) {
+                        var value = (bool)p.GetValue(this);
+                        var changeState = false;
+                        if (value) {
+                            changeState = GUILayout.Button("<size=36><color=#22DD22>●</color></size>",
+                                TweakRunner.Enabl, GUILayout.Width(22));
+                        }
+                        else {
+                            changeState = GUILayout.Button("<size=36><color=#888888>●</color></size>",
+                                TweakRunner.Enabl, GUILayout.Width(22));
+                        }
 
-        static readonly AssemblyBuilder dynSettingsAssembly;
-        static readonly ModuleBuilder dynSettingsModule;
-        static readonly Dictionary<TweakAttribute, Type> settingTypes;
-        [XmlIgnore] public State RunningState = State.Disabled;
-        public State EnableState = State.Enabled;
-        public bool IsExpanded;
+                        var ctn = RDString.GetWithCheck(attr.Label, out bool exists);
+                        if (!exists) ctn = attr.Label;
+                        GUILayout.Button($"<size={Tweak.fontSize}><b>{ctn}</b></size>", TweakRunner.Enabl_Label);
+                        if (changeState) p.SetValue(this, !value);
+                    }
+                }
+                else if (info is FieldInfo f) {
+                    if (f.FieldType == typeof(bool)) {
+                        var value = (bool)f.GetValue(this);
+                        var changeState = false;
+                        if (value) {
+                            changeState = GUILayout.Button("<size=36><color=#22DD22>●</color></size>",
+                                TweakRunner.Enabl, GUILayout.Width(22));
+                        }
+                        else {
+                            changeState = GUILayout.Button("<size=36><color=#888888>●</color></size>",
+                                TweakRunner.Enabl, GUILayout.Width(22));
+                        }
 
+                        var ctn = RDString.GetWithCheck(attr.Label, out bool exists);
+                        if (!exists) ctn = attr.Label;
+                        GUILayout.Button($"<size={Tweak.fontSize}><b>{ctn}</b></size>", TweakRunner.Enabl_Label);
+                        if (changeState) f.SetValue(this, !value);
+                    }
+                }
+                GUILayout.EndHorizontal();
+                GUILayout.Space(-15);
+            }
+            GUILayout.Space(20);
+        }
+        
         public override string GetPath(ModEntry modEntry)
             => Path.Combine(modEntry.Path, GetType().FullName + ".xml");
 
@@ -85,276 +261,75 @@ namespace EditorPlus {
                 modEntry.Logger.LogException(e);
             }
         }
-
-        public List<MemberInfo> DrawMembers;
-
-        public void Draw() {
-            
-        }
     }
 
-    public static class Runner {
-        static Runner() {
-            Runners = new List<TweakRunner>();
-            RunnersDict = new Dictionary<Type, TweakRunner>();
-        }
-        public static void Load(ModEntry modEntry) => Run(modEntry);
-
-        public static void Run(ModEntry modEntry, bool preGUI = false, params Assembly[] assemblies) {
-            Tweak.TweakEntry = modEntry;
-            TweakTypes = new List<Type>();
-            for (int i = 0; i < assemblies.Length; i++) {
-                Assembly asm = assemblies[i];
-                if (asm == modEntry.Assembly) continue;
-                TweakTypes.AddRange(asm.GetTypes().Where(t => t.IsSubclassOf(typeof(Tweak)) && !t.IsNested && t.GetCustomAttribute<TweakAttribute>() != null));
-            }
-
-            TweakTypes.AddRange(modEntry.Assembly.GetTypes().Where(t => t.IsSubclassOf(typeof(Tweak)) && !t.IsNested && t.GetCustomAttribute<TweakAttribute>() != null));
-
-            foreach (Type tweakType in TweakTypes
-                         .OrderBy(t => t.GetCustomAttribute<TweakAttribute>().Priority)
-                         .ThenBy(t => t.GetCustomAttribute<TweakAttribute>().Name)) {
-                RegisterTweakInternal(tweakType, null, false);
-            }
-            
-            modEntry.OnToggle += (m, v) => OnToggle(v);
-            if (preGUI) {
-                modEntry.OnGUI = (_ => OnGUI()) + modEntry.OnGUI;
-            }
-            else {
-                modEntry.OnGUI += _ => OnGUI();
-            }
-            modEntry.OnHideGUI += _ => OnHideGUI();
-            modEntry.OnSaveGUI += _ => OnSaveGUI();
-            modEntry.OnSaveGUI += _ => OnUpdate();
-        }
-
-        private static List<Type> TweakTypes { get; set; }
-        private static Dictionary<Type, TweakRunner> RunnersDict { get; }
-        private static List<TweakRunner> Runners { get; }
-
-        private static void Start() {
-            Runners.ForEach(runner => {
-                if (runner.Settings.EnableState == State.Enabled)
-                    runner.Start();
-            });
-        }
-
-        private static void Stop() {
-            Runners.ForEach(runner => runner.Stop());
-            //Runners.Clear();
-            OnSaveGUI();
-        }
-
-        private static bool OnToggle(bool value) {
-            if (value) Start();
-            else Stop();
-            return true;
-        }
-
-        private static void OnHideGUI() => Runners.ForEach(runner => runner.OnHideGUI());
-        private static void OnGUI() => Runners.ForEach(runner => runner.OnGUI());
-
-        private static void OnSaveGUI()
-            => SyncSettings.Save(Tweak.TweakEntry);
-
-        private static void OnUpdate()
-            => Runners.ForEach(runner => runner.OnUpdate());
-
-        internal static void RegisterTweakInternal(Type tweakType, TweakRunner outerRunner, bool last,
-            int innerTime = 0) {
-            try {
-                if (tweakType.BaseType != typeof(Tweak) && outerRunner == null) return;
-                if (Tweak.Tweaks.Keys.Contains(tweakType)) return;
-                Tweak tweak = InitTweak(tweakType, out var settings, out var attr);
-                TweakRunner runner = new TweakRunner(tweak, attr, settings, last, outerRunner, innerTime);
-                tweak.Runner = runner;
-                if (outerRunner != null) outerRunner.InnerTweaks.Add(runner);
-                else runner.Last = Tweak.Tweaks.Values.Last() == tweak;
-                if (outerRunner == null)
-                    Runners.Add(runner);
-                var nestedTypes = tweakType.GetNestedTypes((BindingFlags) 15420).Where(t => t.IsSubclassOf(tweakType));
-                if (nestedTypes.Any()) {
-                    var lastType = nestedTypes.Last();
-                    innerTime++;
-                    foreach (Type type in nestedTypes)
-                        RegisterTweakInternal(type, runner, type == lastType, innerTime);
-                }
-
-                SyncSettings.Sync(tweak.GetType(), tweak);
-                SyncTweak.Sync(tweak.GetType(), tweak);
-                if (runner.Metadata.PatchesType != null) {
-                    SyncSettings.Sync(runner.Metadata.PatchesType, tweak);
-                    SyncTweak.Sync(runner.Metadata.PatchesType, tweak);
-                }
-            } catch (Exception e) {
-                Tweak.TweakEntry.Logger.Log($"{tweakType}\n{e}");
-                throw e;
-            }
-        }
-
-        internal static Tweak InitTweak(Type tweakType, out TweakSettings settings, out TweakAttribute attr) {
-            ConstructorInfo constructor = tweakType.GetConstructor(new Type[] { });
-            Tweak tweak = (Tweak) constructor.Invoke(null);
-            attr = tweakType.GetCustomAttribute<TweakAttribute>();
-            if (attr == null)
-                throw new NullReferenceException("Cannot Find Tweak Metadata! (TweakAttribute)");
-            Type settingType = TweakSettings.GetSettingType(attr, tweakType, out var error);
-            SyncSettings.Register(Tweak.TweakEntry, tweakType, settingType);
-            settings = SyncSettings.SettingsTweaktype[tweakType];
-            if (error) {
-                settings.RunningState = State.Error;
-                settings.EnableState = State.Error;
-            }
-            Tweak.Tweaks.Add(tweakType, tweak);
-            return tweak;
-        }
+    public enum State {
+        Enabled,
+        Disabled,
+        Error
     }
 
-    #endregion
+    internal static class TweakRunner {
+        public static Root Root { get; private set; }
+        public static List<Tweak> Tweaks = new();
 
-    #region Internals
+        public static ModEntry Entry;
 
-    internal class TweakGroup {
-        public List<TweakRunner> runners;
-
-        public TweakGroup(List<TweakRunner> runners)
-            => this.runners = runners;
-
-        public void Enable(TweakRunner runner) {
-            foreach (TweakRunner rnr in runners.Where(r => r != runner))
-                rnr.Disable(false);
-        }
-    }
-
-    internal class TweakRunner {
-        public static Dictionary<int, Dictionary<string, TweakGroup>> Groups =
-            new Dictionary<int, Dictionary<string, TweakGroup>>();
-
+        public static int Indent;
+        public const float FontSizeMax = 18f;
+        public const float FontSizeMin = 10f;
         public static GUIStyle Expan;
         public static GUIStyle Enabl;
         public static GUIStyle Enabl_Label;
         public static GUIStyle Descr;
         public static bool StyleInitialized = false;
-        public Tweak Tweak { get; }
-        public TweakRunner OuterTweak { get; }
-        public List<TweakRunner> InnerTweaks { get; }
-        public TweakAttribute Metadata { get; }
-        public TweakSettings Settings { get; internal set; }
-        public Harmony Harmony { get; }
-        public List<TweakPatch> Patches { get; }
-        public bool Inner { get; }
-        public bool Last;
-        public int InnerTime;
-        public TweakGroup Group;
 
-        public TweakRunner(Tweak tweak, TweakAttribute attr, TweakSettings settings, bool last, TweakRunner outerTweak,
-            int innerTime) {
-            Type tweakType = tweak.GetType();
-            Tweak = tweak;
-            Metadata = attr;
-            Settings = settings;
-            Harmony = new Harmony($"Tweaks.{Metadata.Name}");
-            InnerTweaks = new List<TweakRunner>();
-            OuterTweak = outerTweak;
-            Patches = new List<TweakPatch>();
-            Inner = outerTweak != null;
-            InnerTime = innerTime;
-            TweakGroupAttribute group = tweakType.GetCustomAttribute<TweakGroupAttribute>();
-            if (group != null) {
-                if (!Groups.TryGetValue(innerTime, out var groups))
-                    Groups.Add(innerTime, groups = new Dictionary<string, TweakGroup>());
-                if (groups.TryGetValue(group.Id, out Group))
-                    Group.runners.Add(this);
-                else groups.Add(group.Id, Group = new TweakGroup(new List<TweakRunner>() { this }));
+        public static void Run(ModEntry entry) {
+            Entry = entry;
+            Root = new Root();
+            Entry.Logger.Log("Initializing Root...");
+            Root.Init(null, typeof(Root).GetCustomAttribute<TweakAttribute>());
+            Entry.Logger.Log("Root initalized.");
+            var types = Assembly.GetExecutingAssembly().GetTypes()
+                .Where(t => t.IsSubclassOf(typeof(Tweak)) && !t.IsNested && t.GetCustomAttribute<TweakAttribute>() != null)
+                .OrderBy(t => t.GetCustomAttribute<TweakAttribute>().Priority);
+            
+            Entry.Logger.Log("Initializing Tweaks...");
+            foreach (var type in types) {
+                if (type == typeof(Root)) continue;
+                if (!type.IsSubclassOf(typeof(Tweak))) continue;
+                RegisterTweak(type, Root);
             }
-
-            Last = last;
-            if (Metadata.PatchesType != null)
-                AddPatches(Metadata.PatchesType, true);
-            AddPatches(tweakType, false);
-            if (Metadata.MustNotBeDisabled) {
-                Settings.RunningState = State.Enabled;
-                Settings.EnableState = State.Enabled;
-            }
+            Entry.Logger.Log("All tweaks initialized.");
         }
 
-        public string LogPrefix {
-            get {
-                if (logPrefix != null) return logPrefix;
-                StringBuilder sb = new StringBuilder();
-                TweakRunner runner = this;
-                List<string> names = new List<string>();
-                while (runner.OuterTweak != null) {
-                    names.Add(runner.OuterTweak.Metadata.Name);
-                    runner = runner.OuterTweak;
-                }
-
-                names.Reverse();
-                foreach (string name in names)
-                    sb.Append($"[{name}] ");
-                sb.Append($"[{Metadata.Name}] ");
-                return logPrefix = sb.ToString();
-            }
-        }
-
-        private string logPrefix;
-
-        public void Start() {
-            if (Settings.RunningState != State.Enabled) Enable();
-            InnerTweaks.ForEach(runner => {
-                if (runner.Settings.EnableState == State.Enabled)
-                    runner.Start();
-            });
-        }
-
-        public void Stop() {
-            if (Settings.RunningState == State.Enabled)
-                Disable(false);
-        }
-
-        public void Enable() {
-            Tweak.OnEnable();
-            if (Metadata.PatchesType != null)
-                foreach (Type type in GetNestedTypes(Metadata.PatchesType))
-                    Harmony.CreateClassProcessor(type).Patch();
-            foreach (Type type in Tweak.GetType().GetNestedTypes((BindingFlags) 15420))
-                Harmony.CreateClassProcessor(type).Patch();
-            foreach (var patch in Patches.OrderBy(tp => tp.Priority)) {
-                if (patch.Prefix)
-                    Harmony.Patch(patch.Target, new HarmonyMethod(patch.Patch));
-                else Harmony.Patch(patch.Target, postfix: new HarmonyMethod(patch.Patch));
-            }
-
-            Tweak.OnPatch();
-            Settings.EnableState = State.Enabled;
-            Settings.RunningState = State.Enabled;
-            Group?.Enable(this);
-        }
-
-        public void Disable(bool changeState = true) {
-            if (Metadata.MustNotBeDisabled) {
+        private static void RegisterTweak(Type tweakType, Tweak parent) {
+            Entry.Logger.Log($"Initializing tweak {tweakType}...");
+            var attr = tweakType.GetCustomAttribute<TweakAttribute>();
+            if (attr == null) {
+                Entry.Logger.Log($"Warning: Tweak type {tweakType} has no attribute TweakAttribute");
                 return;
             }
-            Tweak.OnDisable();
-            Harmony.UnpatchAll(Harmony.Id);
-            Tweak.OnUnpatch();
-            InnerTweaks.ForEach(runner => runner.Disable(false));
-            if (changeState) Settings.EnableState = State.Disabled;
-            Settings.RunningState = State.Disabled;
+
+            var tweak = (Tweak) Activator.CreateInstance(tweakType);
+            tweak.Init(parent, attr);
+
+            var types = tweakType.GetNestedTypes(AccessTools.all)
+                .Where(t => t.IsSubclassOf(typeof(Tweak)) && t.GetCustomAttribute<TweakAttribute>() != null)
+                .OrderBy(t => t.GetCustomAttribute<TweakAttribute>().Priority).ToArray();
+            foreach (var t in types) {
+                if (!t.IsSubclassOf(typeof(Tweak))) continue;
+                RegisterTweak(t, tweak);
+            }
         }
-
-        public static int Indent;
-        public const float FontSizeMax = 18f;
-        public const float FontSizeMin = 10f;
-
-        public void OnGUI() {
+        
+        public static void OnGUI() {
             var font = GUI.skin.font;
             GUI.skin.font = RDC.data.arialFont;
             if (!StyleInitialized) {
                 Expan = new GUIStyle() {
                     fixedWidth = 10,
-                    normal = new GUIStyleState() {textColor = Color.white},
+                    normal = new GUIStyleState() { textColor = Color.white },
                     fontSize = 15,
                     margin = new RectOffset(4, 8, 5, 5),
                 };
@@ -371,250 +346,45 @@ namespace EditorPlus {
                 };
                 StyleInitialized = true;
             }
-
-            Tweak.OnPreGUI();
-            GUILayout.BeginHorizontal();
-            bool canBeExpanded = Metadata.SettingsType != null;
-            bool newIsExpanded = Settings.IsExpanded;
-            State newIsEnabled = Settings.EnableState;
-
-            var fontSize = (int) (2 * FontSizeMax + FontSizeMin * Indent) / (Indent + 2);
-
-            if (canBeExpanded && Settings.RunningState == State.Enabled) {
-                if (GUILayout.Button(Settings.IsExpanded ? "▼" : "▶", Expan)) newIsExpanded = !newIsExpanded;
-            } else {
-                GUILayout.Label("", Expan);
-            }
-
-            Func<bool> enableTxt;
-            switch (newIsEnabled) {
-                case State.Enabled:
-                    enableTxt = () => GUILayout.Button(Metadata.MustNotBeDisabled ? "" : "<size=36><color=#22DD22>●</color></size>", Enabl, GUILayout.Width(22));
-                    break;
-                case State.Disabled:
-                    enableTxt = () => GUILayout.Button(Metadata.MustNotBeDisabled ? "" : "<size=36><color=#888888>●</color></size>", Enabl, GUILayout.Width(22));
-                    break;
-                case State.Error:
-                    enableTxt = () => {
-                        GUILayout.Label(Metadata.MustNotBeDisabled ? "" : "<size=36><color=#DD2222>●</color></size>", Enabl, GUILayout.Width(50));
-                        GUILayout.Space(-45);
-                        GUILayout.BeginVertical();
-                        GUILayout.Space(4);
-                        GUILayout.Label(Metadata.MustNotBeDisabled ? "" : "<b><size=14><color=#FFFFFF>！</color></size></b>", Enabl, GUILayout.Width(45));
-                        GUILayout.Space(-4);
-                        GUILayout.EndVertical();
-                        GUILayout.Space(-30);
-                        return false;
-                    };
-                    break;
-                default:
-                    throw new ArgumentOutOfRangeException();
-            }
-            var ctn = RDString.GetWithCheck($"editorPlus.tweakName.{Metadata.Name}", out bool exists);
-            if (!exists) ctn = $"editorPlus.tweakName.{Metadata.Name}";
-            if (enableTxt() || GUILayout.Button($"<size={fontSize}><b>{ctn}</b></size>", Enabl_Label))
-                newIsEnabled = 1 - newIsEnabled;
-            var desc = RDString.GetWithCheck($"editorPlus.tweakDesc.{Metadata.Name}", out exists);
-            if (exists) {
-                GUILayout.Label("-");
-                GUILayout.Label(desc, Descr);
-            }
-
-            GUILayout.FlexibleSpace();
-            GUILayout.EndHorizontal(); 
-            GUILayout.Space(-5);
             
-            if (!Metadata.MustNotBeDisabled && Settings.RunningState != State.Error && newIsEnabled != Settings.RunningState) {
-                Settings.RunningState = newIsEnabled;
-                Settings.EnableState = newIsEnabled;
-                if (newIsEnabled == State.Enabled) {
-                    Enable();
-                    newIsExpanded = true;
-                } else Disable();
-            }
-
-            if (newIsExpanded != Settings.IsExpanded) {
-                Settings.IsExpanded = newIsExpanded;
-                if (!newIsExpanded)
-                    Tweak.OnHideGUI();
-            }
-
-            if (canBeExpanded && Settings.IsExpanded && Settings.RunningState == State.Enabled) {
-                GUILayout.BeginHorizontal();
-                GUILayout.Space(Metadata.IndentSize);
-                Indent += 1;
-                GUILayout.BeginVertical();
-                Tweak.OnGUI();
-                InnerTweaks.ForEach(runner => runner.OnGUI());
-                GUILayout.EndVertical();
-                Indent -= 1;
-                GUILayout.EndHorizontal();
-                if (!Last)
-                    GUILayout.Space(32f);
-            }
-
-            GUI.skin.font = font;
-            Tweak.OnPostGUI();
+            Root.OnGUI();
         }
 
-        public void OnUpdate() {
-            if (Settings.RunningState == State.Enabled)
-                Tweak.OnUpdate();
-            InnerTweaks.ForEach(runner => runner.OnUpdate());
+        public static void BeginIndent() {
+            Indent += 40;
+            GUILayout.BeginHorizontal();
+            GUILayout.Space(40);
+            GUILayout.BeginVertical();
         }
 
-        public void OnHideGUI() {
-            if (Settings.RunningState == State.Enabled)
-                Tweak.OnHideGUI();
-            InnerTweaks.ForEach(runner => runner.OnHideGUI());
-        }
-
-        private void AddPatches(Type patchesType, bool patchNestedTypes) {
-            void AddPatches(Type t) {
-                foreach (MethodInfo method in t.GetMethods((BindingFlags) 15420))
-                foreach (TweakPatch patch in method.GetCustomAttributes<TweakPatch>(true)) {
-                    patch.Patch = method;
-                    Patches.Add(patch);
-                }
-            }
-
-            if (patchNestedTypes) {
-                AddPatches(patchesType);
-                foreach (Type type in GetNestedTypes(patchesType))
-                    AddPatches(type);
-            } else AddPatches(patchesType);
-        }
-
-        public static List<Type> GetNestedTypes(Type type) {
-            void GetNestedTypes(Type ty, List<Type> toContain) {
-                foreach (Type t in ty.GetNestedTypes((BindingFlags) 15420)) {
-                    toContain.Add(t);
-                    GetNestedTypes(t, toContain);
-                }
-            }
-
-            var container = new List<Type>();
-            GetNestedTypes(type, container);
-            return container;
+        public static void EndIndent() {
+            GUILayout.EndVertical();
+            GUILayout.EndHorizontal();
+            Indent -= 40;
         }
     }
 
-    #endregion
-
-    #region Attributes
-
-    [AttributeUsage(AttributeTargets.Method, AllowMultiple = true, Inherited = true)]
-    public class TweakPatch : Attribute {
-        public static readonly int Version = (int) AccessTools.Field(typeof(GCNS), "releaseNumber").GetValue(null);
-        public bool Prefix;
-        public string PatchId;
-        public int Priority;
-        public int MinVersion;
-        public int MaxVersion;
-        public MethodBase Target;
-        internal MethodInfo Patch;
-
-        public TweakPatch(Type type, string name, params Type[] parameterTypes) {
-            if (parameterTypes.Length == 0) {
-                try {
-                    Target = type.GetMethod(name, AccessTools.all);
-                } catch (AmbiguousMatchException) {
-                    goto ParamMethod;
-                }
-
-                return;
-            }
-
-            ParamMethod:
-            Target = type.GetMethod(name, AccessTools.all, null, parameterTypes, null);
-        }
-
-        public bool IsValid =>
-            (MinVersion == -1 || Version >= MinVersion) && (MaxVersion == -1 || Version <= MaxVersion);
-    }
+    #region Attrs
 
     [AttributeUsage(AttributeTargets.Class, Inherited = false)]
     public class TweakAttribute : Attribute {
         public TweakAttribute(string name) {
             Name = name;
-            IndentSize = 40f;
         }
         
-        public string Name;
-        public Type PatchesType;
-        public Type SettingsType;
-        public bool MustNotBeDisabled;
-        public int Priority;
-        public float IndentSize;
+        public string Name { get; }
+        public bool CannotDisable { get; set; }
+        public int Priority { get; set; }
     }
 
-    [AttributeUsage(AttributeTargets.Class, Inherited = false)]
-    public class TweakGroupAttribute : Attribute {
-        public string Id;
-        public TweakGroupAttribute() => Id = "Default";
+    public class DrawAttribute : Attribute {
+        public DrawAttribute(string label = null) {
+            Label = label;
+        }
+        
+        public string Label { get; private set; }
     }
 
-    public class SyncSettings : Attribute {
-        public static Dictionary<Type, TweakSettings> SettingsTweaktype = new Dictionary<Type, TweakSettings>();
-        public static Dictionary<Type, TweakSettings> SettingsSettingType = new Dictionary<Type, TweakSettings>();
-
-        static readonly MethodInfo load = typeof(ModSettings).GetMethod(nameof(ModSettings.Load), (BindingFlags) 15420,
-            null, new Type[] {typeof(ModEntry)}, null);
-
-        public static void Register(ModEntry modEntry, Type tweakType, Type settingsType) {
-            try {
-                Debug.Log($"Setting type {settingsType}");
-                SettingsTweaktype[tweakType] = (TweakSettings) load.MakeGenericMethod(settingsType).Invoke(null, new object[] {modEntry});
-            } catch {
-                SettingsTweaktype[tweakType] = (TweakSettings) Activator.CreateInstance(settingsType);
-            }
-            
-            SettingsSettingType[settingsType] = SettingsTweaktype[tweakType];
-        }
-
-        public static void Sync(Type type, object instance = null) {
-            foreach (var field in type.GetFields((BindingFlags) 15420)) {
-                SyncSettings sync = field.GetCustomAttribute<SyncSettings>();
-                if (sync != null)
-                    if (field.IsStatic)
-                        field.SetValue(null, SettingsSettingType.GetValueOrDefault(field.FieldType));
-                    else field.SetValue(instance, SettingsSettingType.GetValueOrDefault(field.FieldType));
-            }
-
-            foreach (var prop in type.GetProperties((BindingFlags) 15420)) {
-                SyncSettings sync = prop.GetCustomAttribute<SyncSettings>();
-                if (sync != null)
-                    if (prop.GetGetMethod(true).IsStatic)
-                        prop.SetValue(null, SettingsSettingType.GetValueOrDefault(prop.PropertyType));
-                    else prop.SetValue(instance, SettingsSettingType.GetValueOrDefault(prop.PropertyType));
-            }
-        }
-
-        public static void Save(ModEntry modEntry) {
-            foreach (var setting in SettingsTweaktype.Values)
-                setting.Save(modEntry);
-        }
-    }
-
-    public class SyncTweak : Attribute {
-        public static void Sync(Type type, object instance = null) {
-            foreach (var field in type.GetFields((BindingFlags) 15420)) {
-                SyncTweak sync = field.GetCustomAttribute<SyncTweak>();
-                if (sync != null)
-                    if (field.IsStatic)
-                        field.SetValue(null, Tweak.Tweaks[field.FieldType]);
-                    else field.SetValue(instance, Tweak.Tweaks[field.FieldType]);
-            }
-
-            foreach (var prop in type.GetProperties((BindingFlags) 15420)) {
-                SyncTweak sync = prop.GetCustomAttribute<SyncTweak>();
-                if (sync != null)
-                    if (prop.GetGetMethod(true).IsStatic)
-                        prop.SetValue(null, Tweak.Tweaks[prop.PropertyType]);
-                    else prop.SetValue(instance, Tweak.Tweaks[prop.PropertyType]);
-            }
-        }
-    }
-
+    public class SyncTweakAttribute : Attribute { }
     #endregion
 }

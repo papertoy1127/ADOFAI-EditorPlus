@@ -9,17 +9,15 @@ using UnityModManagerNet;
 
 namespace EditorPlus.Tweaks;
 
-[Tweak("miscellaneous", SettingsType = typeof(MiscellaneousSettings), Priority = int.MaxValue)]
-public class Miscellaneous : Tweak {
-	[SyncSettings] public static MiscellaneousSettings Settings { get; set; }
+[Tweak("miscellaneous", Priority = int.MaxValue)]
+public class Miscellaneous : Tweak<Miscellaneous.MiscellaneousSettingses> {
 	[SyncTweak] public static Miscellaneous Instance { get; set; }
-
-	public class MiscellaneousSettings : TweakSettings {
+	public class MiscellaneousSettingses : TweakSettings {
 		//Settings
 	}
 
-	[Tweak("removeFFOnRGBA", PatchesType = typeof(RemoveFFOnRGBA))]
-	public class RemoveFFOnRGBA : Miscellaneous {
+	[Tweak("removeFFOnRGBA")]
+	public class RemoveFFOnRGBA : Tweak {
 		[HarmonyPatch(typeof(RDColorPickerPopup), "Hide")]
 		public static class RemoveFFLastPatch {
 			public static void Postfix(RDColorPickerPopup __instance) {
@@ -32,12 +30,11 @@ public class Miscellaneous : Tweak {
 		}
 	}
 
-	[Tweak("showTileAngle", SettingsType = typeof(SettingsClass), PatchesType = typeof(ShowTileAngle))]
-	public class ShowTileAngle : Miscellaneous {
-		[SyncSettings] public new static SettingsClass Settings { get; set; }
+	[Tweak("showTileAngle")]
+	public class ShowTileAngle : Tweak<ShowTileAngle.SettingsClass> {
 		public class SettingsClass : TweakSettings {
-			public bool Reflect3Planet;
-			public bool RequireKeybind;
+			[Draw("editorPlus.showTileAngle.Reflect3Planet")] public bool Reflect3Planet;
+			[Draw("editorPlus.showTileAngle.RequireKeybind")] public bool RequireKeybind;
 			public DefaultKeyBind KeyBind;
 		}
 		
@@ -48,8 +45,7 @@ public class Miscellaneous : Tweak {
 		}
 
 		public override void OnGUI() {
-			Settings.Reflect3Planet = GUILayout.Toggle(Settings.Reflect3Planet, RDString.Get("editorPlus.showTileAngle.Reflect3Planet"));
-			Settings.RequireKeybind = GUILayout.Toggle(Settings.RequireKeybind, RDString.Get("editorPlus.showTileAngle.RequireKeybind"));
+			base.OnGUI();
 			if (Settings.RequireKeybind) {
 				GUILayout.BeginHorizontal(GUILayout.Width(300));
 				GUILayout.Space(20);

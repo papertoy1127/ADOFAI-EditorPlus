@@ -7,10 +7,8 @@ using UnityEngine;
 namespace EditorPlus.Tweaks;
 
 [Tweak("unlimitedEditor",
-    SettingsType = typeof(UnlimitedEditorSettings),
     Priority = 0)]
-public class UnlimitedEditor : Tweak {
-    [SyncSettings] public static UnlimitedEditorSettings Settings { get; set; }
+public class UnlimitedEditor : Tweak<UnlimitedEditor.UnlimitedEditorSettings> {
     [SyncTweak] public static UnlimitedEditor Instance { get; set; }
 
     public class UnlimitedEditorSettings : TweakSettings {
@@ -18,8 +16,8 @@ public class UnlimitedEditor : Tweak {
     }
 
 
-    [Tweak("firstTile", PatchesType = typeof(FirstTile))]
-    public class FirstTile : UnlimitedEditor {
+    [Tweak("firstTile")]
+    public class FirstTile : Tweak {
         [HarmonyPatch(typeof(scnEditor), "OnSelectedFloorChange")]
         public static class OnSelectedFloorChangePatch {
             public static bool Prefix(scnEditor __instance) {
@@ -107,8 +105,8 @@ public class UnlimitedEditor : Tweak {
         }
     }
 
-    [Tweak("unlimitedValues", PatchesType = typeof(UnlimitedValues))]
-    public class UnlimitedValues : UnlimitedEditor {
+    [Tweak("unlimitedValues")]
+    public class UnlimitedValues : Tweak {
         [HarmonyPatch(typeof(PropertyInfo), "Validate", typeof(int))]
         public static class ValidateIntPatch {
             public static bool Prefix(int value, out int __result) {

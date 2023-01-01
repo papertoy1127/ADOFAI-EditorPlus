@@ -33,6 +33,8 @@ namespace EditorPlus {
                 GUILayout.BeginVertical();
                 GUILayout.Space(8);
                 GUILayout.Label(texture, GUILayout.Height(120));
+                
+                TweakRunner.OnGUI();
 
                 GUILayout.EndVertical();
                 GUILayout.EndHorizontal();
@@ -43,7 +45,7 @@ namespace EditorPlus {
             Harmony.CreateClassProcessor(typeof(ExistsLocalizedStringPatch)).Patch();
             Harmony.CreateClassProcessor(typeof(TextFieldHandleEvent)).Patch();
             Harmony.CreateClassProcessor(typeof(TextFieldHandleEvent2)).Patch();
-            Runner.Run(modEntry);
+            TweakRunner.Run(modEntry);
             _mod.OnGUI += _ => {
                 if (GUILayout.Button("Credits", GUILayout.Height(18), GUILayout.Width(200))) {
                     _credits = !_credits;

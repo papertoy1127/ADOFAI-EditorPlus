@@ -89,6 +89,11 @@
         "ChineseSimplified": "使用传统闪光砖块"
     },
 
+    "editor.EH:clearVFX": {
+        "Korean": "VFX 제거",
+        "English": "Clear VFX"
+    },
+
     "editor.EH:lockToCameraPos": {
         "Korean": "위치 고정",
         "English": "Lock position",
